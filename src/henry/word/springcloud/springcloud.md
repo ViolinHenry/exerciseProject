@@ -1,6 +1,6 @@
 # SpringCloud笔记
 
-[toc]
+[TOC]
 
 ---
 

@@ -206,9 +206,20 @@ MyISAM中，索引和数据是分开，通过索引可以找到记录的地址�
  
  6）将一个commit point写入磁盘文件，里面标识这个commit point对应的所有segment file。
  
- 7）强行将os cache中目前所有的数据都fsync到磁盘中去。
+ 7）强行将os cache中目前所有的数据都fsync（强刷）到磁盘中去。
  
  8）将现有的translog清空，然后重新启用一个translog，此时commit操作完成。默认每隔30分钟会自动执行一次commit，但是如果translog过大，也会触发commit。整个commit的过程叫做flush操作。我们可以手动执行flush操作，就是将所有os cache数据刷到磁盘文件中。
+
+ 9）translog其实也是先写入os cache的，默认每隔5秒刷一次到磁盘中去，所以默认情况下，可能有5秒的数据会仅仅提留在buffer或translog文件的os cache中，如果此时机器宕机了，会丢失5秒钟的数据。但是这样性能比较好，最多丢5秒的数据。也可以将translog设置成每次写操作必须是直接fsync到磁盘，但这样性能就会差很多。
+ 
+ 10）如果是删除操作，commit的时候会生成一个.del文件，里面讲某个doc标识为deleted状态，那么搜索的时候根据.del文件就知道这个doc被删除了。
+ 
+ 11）如果是更新操作，就是原来的doc标识为deleted状态，然后写入一条数据。
+ 
+ 12）buffer每一次refresh一次，就会产生一个segment file，所以默认情况下是1秒钟一个segment file，segment file会越来越多，此时会定期执行merge。
+ 
+ 13）每次merge的时候，会将多个segment file合并成一个，同时这里会将标识为deleted的doc给物理删除，然后将新的segment file写入磁盘，这里会写一个commit point，标识所有新的segment file，然后打开segment file供搜索使用，同时删除就的segment file。
+
 
 
 ### 3.ES读取过程

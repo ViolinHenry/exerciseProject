@@ -177,3 +177,49 @@ MyISAM中，索引和数据是分开，通过索引可以找到记录的地址�
 ![](ES_pic/5eec24b1.png)
 
 
+
+### 2.ES写入过程
+
+ 1） 客户端选择一个node发送请求，这个node就是coordinating node（协调节点）。
+ 
+ 2） coordinating node对document进行路由，将请求转发给对应的node（有primary shard）。
+ 
+ 3） primary shard处理node的请求，然后将数据同步到replica node。
+ 
+ 4） coordinating node发现primary node和所有replica node都完成之后，就返回响应结果给客户端。
+
+### 3.primary shard写入过程
+
+ 1）先写入buffer，在buffer里的时候数据是搜索不到的，同时将数据写入translog日志文件。
+ 
+ 2）如果buffer快满了，或者到一定时间，就会将buffer数据refresh到一个新的segment file中，但是此时数据不能直接进入segment file的磁盘文件，而是先进入os cache。
+    
+   默认是每隔1秒refresh一次，所以es是准实时的，因为写入的数据1秒之后才能被看到。可以手动refresh，就是手动将buffer数据刷入os cache中，让数据可以被搜索到。
+     
+   只要数据被输入os cache中，buffer就会被清空，因为不需要保留buffer，数据在translog里已经持久化到磁盘去了。
+ 
+ 3）只要数据进入os cache，此时就可以让这个segment file的数据对外提供搜索了。
+ 
+ 4）重复1~3步骤，新的数据不断进入buffer和translog，不断将buffer数据写入一个又一个新的segment file中，每次refresh完成，buffer清空，translog保留。随着这个过程推进，translog会变得越来越大。当translog达到一定长度时，就会触发commit操作。
+
+ 5）commit操作发生第一步，将buffer中现有数据refresh到os cache中去，清空buffer。
+ 
+ 6）将一个commit point写入磁盘文件，里面标识这个commit point对应的所有segment file。
+ 
+ 7）强行将os cache中目前所有的数据都fsync到磁盘中去。
+ 
+ 8）将现有的translog清空，然后重新启用一个translog，此时commit操作完成。默认每隔30分钟会自动执行一次commit，但是如果translog过大，也会触发commit。整个commit的过程叫做flush操作。我们可以手动执行flush操作，就是将所有os cache数据刷到磁盘文件中。
+
+
+### 3.ES读取过程
+ 1） 客户端选择任意一个node成为coordinating node（协调节点）
+ 
+ 2） coordinating node对document进行路由，将请求转发给对应的node，此时会使用round-robin随机轮询算法，在primary shard及其所有的replica中随机选择一个，让读请求负载均衡
+
+ 3） 接受请求的node返回document给coordinating node
+ 
+ 4） coordinating node返回document给客户端
+
+
+
+

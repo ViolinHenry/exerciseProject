@@ -178,17 +178,7 @@ MyISAM中，索引和数据是分开，通过索引可以找到记录的地址�
 
 
 
-### 2.ES写入过程
-
- 1） 客户端选择一个node发送请求，这个node就是coordinating node（协调节点）。
- 
- 2） coordinating node对document进行路由，将请求转发给对应的node（有primary shard）。
- 
- 3） primary shard处理node的请求，然后将数据同步到replica node。
- 
- 4） coordinating node发现primary node和所有replica node都完成之后，就返回响应结果给客户端。
-
-### 3.primary shard写入过程
+### 3.ES写入原理
 
  1）先写入buffer，在buffer里的时候数据是搜索不到的，同时将数据写入translog日志文件。
  
@@ -221,15 +211,37 @@ MyISAM中，索引和数据是分开，通过索引可以找到记录的地址�
  13）每次merge的时候，会将多个segment file合并成一个，同时这里会将标识为deleted的doc给物理删除，然后将新的segment file写入磁盘，这里会写一个commit point，标识所有新的segment file，然后打开segment file供搜索使用，同时删除就的segment file。
 
 
+### 2.ES写入过程
+
+ 1） 客户端选择一个node发送请求，这个node就是coordinating node（协调节点）。
+ 
+ 2） coordinating node对document进行路由，将请求转发给对应的node（有primary shard）。
+ 
+ 3） primary shard处理node的请求，然后将数据同步到replica node。
+ 
+ 4） coordinating node发现primary node和所有replica node都完成之后，就返回响应结果给客户端。
+
+
+
 
 ### 3.ES读取过程
- 1） 客户端选择任意一个node成为coordinating node（协调节点）
+ 1） 客户端选择任意一个node成为coordinating node（协调节点）。
  
- 2） coordinating node对document进行路由，将请求转发给对应的node，此时会使用round-robin随机轮询算法，在primary shard及其所有的replica中随机选择一个，让读请求负载均衡
+ 2） coordinating node对document进行路由，将请求转发给对应的node，此时会使用round-robin随机轮询算法，在primary shard及其所有的replica中随机选择一个，让读请求负载均衡。
 
- 3） 接受请求的node返回document给coordinating node
+ 3） 接受请求的node返回document给coordinating node。
  
- 4） coordinating node返回document给客户端
+ 4） coordinating node返回document给客户端。
+ 
+### 4.ES搜索过程
+
+ 1） 客户端发送请求到一个coordinating node。
+ 
+ 2） 协调节点将搜索请求转发到所有的shard对应的primary shard或replica shard。
+  
+ 3） query phase：每个shard将自己的搜索结果（其实就是一些doc id），返回给协调节点，由协调节点进行数据的合并、排序和分页等操作，产出最终结果。
+ 
+ 4） fetch phase：接着由协调节点根据doc id去各个节点上拉取实际的document数据，最终返回给客户端。
 
 
 

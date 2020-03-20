@@ -9,11 +9,11 @@
 
 * 高性能
 
-![](MySQL_pic/7493acfb.png)
+![](redis_pic/7493acfb.png)
 
 * 高并发
 
-![](MySQL_pic/714c0e43.png)
+![](redis_pic/714c0e43.png)
 
 
 ### 缓存的缺点
@@ -83,7 +83,7 @@ IO多路复用程序可以同时监听AE_REABLE和AE_WRITABLE两种事件，要�
 命令回复处理器写完之后，就会删除这个socket的AE_WRITABLE事件和命令回复处理器的关联关系。
 
 
-![](MySQL_pic/a0a7b143.png)
+![](redis_pic/a0a7b143.png)
 
 
 ### 为啥redis单线程模型也能效率这么高？

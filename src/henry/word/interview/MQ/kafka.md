@@ -7,8 +7,6 @@
 
 ![](.MQ_images/00ba34ce.png)
 
----
-![](.MQ_images/d6791e83.png)
 
 ## Kafka中的术语
 

@@ -102,7 +102,7 @@ Spring Ioc 和 Spring Aop 两个强大的功能才有了 Spring ，Spring 生态
 1、外部或者内部的非 Spring Cloud目都统一通过API网关(Zuul)来访可内部服务
   
 
-2、网关接收到请求后,从注册中心( Eureka)获取可用服务
+2、网关接收到请求后,从注册中心(Eureka)获取可用服务
  
 
 3、由 Ribbon进行均负载后,分发到后端的具体实例

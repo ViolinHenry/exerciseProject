@@ -13,7 +13,7 @@ SpringCloud使用eureka server,client注册上去。eureka是一个高可用的�
 
 *SpringBoot和SpringCloud的关系与区别：*
 
-*1、<u>SpringBoot只是一个**快速开发框架</u>**，使用注解简化了xml配置，内置了Servlet容器，以Java应用程序进行执行。*
+*1、<u>SpringBoot只是一个**快速开发框架**</u>，使用注解简化了xml配置，内置了Servlet容器，以Java应用程序进行执行。*
 
 *2、SpringCloud是一<u>系列框架的集合，可以包含SpringBoot。*</u>
 

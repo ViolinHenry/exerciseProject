@@ -20,7 +20,7 @@ package sort;
  * @date: 2020/6/10      
  * @throws
  */
-public class HeapSort {
+public class heapSort {
     //声明全局变量，用于记录数组array的长度；
     static int len;
     /**

@@ -339,7 +339,7 @@ Extra
 
 4.尽量使用覆盖索引（只访问索引的查询（索引列和查询列一致）），避免select *
 
-5..mysql在使用不等于（!= 或者<>）的时候会导致索引失效而全表扫描
+5.mysql在使用不等于（!= 或者<>）的时候会导致索引失效而全表扫描
 
 6.is null 或者 is not null 都会导致索引失效
 
@@ -447,8 +447,68 @@ InnoDB也会对这个间隙锁加锁
 4. 尽量控制事物大小，减少锁定资源量和时间长度
 5. 尽可能低级别事物隔离
 
+### 七、 left join,right join,inner join,full join之间的区别
 
+#### 1.inner join（内连接），在两张表进行连接查询时，只保留两张表中完全匹配的结果集。
 
+#### 2.left join,在两张表进行连接查询时，会返回左表所有的行，即使在右表中没有匹配的记录。
+
+#### 3.right join,在两张表进行连接查询时，会返回右表所有的行，即使在左表中没有匹配的记录。
+
+#### 4.full join,在两张表进行连接查询时，返回左表和右表中所有没有匹配的行。
+
+#### 事例：
+
+首先，我们先来建两张表，第一张表命名为kemu，第二张表命名为score：
+
+![img.png](MySQL_pic/img.png)
+
+![img_1.png](MySQL_pic/img_1.png)
+
+1. left join
+   
+顾名思义，就是“左连接”，表1左连接表2，以左为主，表示以表1为主，关联上表2的数据，查出来的结果显示左边的所有数据，然后右边显示的是和左边有交集部分的数据。如下：
+   
+`
+select  
+    *
+from
+kemu
+left join score on kemu.id = score.id
+`
+
+![img_2.png](MySQL_pic/img_2.png)
+
+![img_3.png](MySQL_pic/img_3.png)
+
+2. right join
+
+“右连接”，表1右连接表2，以右为主，表示以表2为主，关联查询表1的数据，查出表2所有数据以及表1和表2有交集的数据，如下：
+
+`select
+    *
+from
+kemu
+right join score on kemu.id = score.id`
+
+![img_4.png](MySQL_pic/img_4.png)
+
+![img_5.png](MySQL_pic/img_5.png)
+
+3. join & inner join
+
+join，其实就是“inner join”，为了简写才写成join，两个是表示一个的，内连接，表示以两个表的交集为主，查出来是两个表有交集的部分，其余没有关联就不额外显示出来，这个用的情况也是挺多的，如下
+
+`select
+    *
+from
+kemu
+join score on kemu.id = score.id
+`
+
+![img_6.png](MySQL_pic/img_6.png)
+
+![img_7.png](MySQL_pic/img_7.png)
 
 
 

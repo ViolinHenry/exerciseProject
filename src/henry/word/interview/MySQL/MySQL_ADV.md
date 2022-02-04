@@ -546,3 +546,183 @@ join score on kemu.id = score.id
 ![img.png](MySQL_pic/a5.png)
 
 Extra信息已经有'Using Index'，表示已经使用了覆盖索引。经过索引优化之后，线上的查询基本不超过0.001秒。
+
+
+
+
+
+## 九、redolog & binlog
+
+### redolog和binlog区别
+
+1. redo log 是 InnoDB 引擎特有的；binlog 是 MySQL 的 Server 层实现的，所有引擎都可以使用。
+2. redo log 是物理日志，记录的是“在某个数据页上做了什么修改”；binlog 是逻辑日志，记录的是这个语句的原始逻辑。
+3. redo log 是循环写的，空间固定会用完（4个文件，每个文件1Ｇ）；binlog 是可以追加写入的。“追加写”是指 binlog文件写到一定大小后会切换到下一个，并不会覆盖以前的日志。
+4. binlog 日志没有 crash-safe 的能力，只能用于归档。而 redo log 来实现 crash-safe 能力。
+5. redo log 用于保证 crash-safe 能力。innodb_flush_log_at_trx_commit 这个参数设置成 1 的时候，表示每次事务的 redo log 都直接持久化到磁盘。
+6. sync_binlog 这个参数设置成 1 的时候，表示每次事务的 binlog 都持久化到磁盘。
+7. binlog有两种模式，statement 格式是记sql语句， row格式是记录行的内容，记两条，更新前和更新后都有。
+
+### redolog和binlog联系
+
+```sql
+update t set n = n + 1 where id = 1; 
+```
+
+
+
+1. 执行器先找引擎取 id=1 这一行。id 是主键，引擎直接用树搜索找到这一行。如果
+   id=1这一行所在的数据页本来就在内存中，就直接返回给执行器；否则，需要先从磁盘读入内存，然后再返回。
+2. 执行器拿到引擎给的行数据，把这个值加上 1，比如原来是 n，现在就是n+1，得到新的一行数据，再调用引擎接口写入这行新数据。
+3. 引擎将这行新数据更新到内存中，同时将这个更新操作记录到 redo log 里面，此时 redo log 处于 prepare状态。然后告知执行器执行完成了，随时可以提交事务。
+4. 执行器生成这个操作的 binlog，并把 binlog 写入磁盘。
+5. 执行器调用引擎的提交事务接口，引擎把刚刚写入的 redo log 改成提交（commit）状态，更新完成。
+
+
+
+## 十、索引失效场景
+
+**1.where语句中包含or时，可能会导致索引失效**
+
+使用or并不是一定会使索引失效，你需要看or左右两边的查询列是否命中相同的索引。
+
+假设USER表中的user_id列有索引，age列没有索引。
+
+select * from `user` where user_id = 1 or age = 20;下面这条语句其实是命中索引的（据说是新版本的MySQL才可以，如果你使用的是老版本的MySQL，可以使用explain验证下）。
+
+```mysql
+select * from `user` where user_id = 1 or user_id = 2;
+```
+
+但是这条语句是无法命中索引的。
+
+```mysql
+select * from `user` where user_id = 1 or age = 20;
+```
+
+假设age列也有索引的话，依然是无法命中索引的。
+
+```mysql
+select * from `user` where user_id = 1 or age = 20;
+```
+
+因此才有建议说，尽量避免使用or语句，可以根据情况尽量使用union all或者in来代替，这两个语句的执行效率也比or好些。
+
+
+
+**2. where语句中索引列使用了负向查询，可能会导致索引失效**
+
+负向查询包括：NOT、!=、<>、!<、!>、NOT IN、NOT LIKE等。
+
+某“军规”中说，使用负向查询一定会索引失效，笔者查了些文章，有网友对这点进行了反驳并举证。
+
+其实负向查询并不绝对会索引失效，这要看MySQL优化器的判断，全表扫描或者走索引哪个成本低了。
+
+
+
+**3. 索引字段可以为null，使用is null或is not null时，可能会导致索引失效**
+
+
+
+**4. 在索引列上使用内置函数，一定会导致索引失效**
+
+比如下面语句中索引列login_time上使用了函数，会索引失效：
+
+```mysql
+select * from `user` where DATE_ADD(login_time, INTERVAL 1 DAY) = 7;
+```
+
+优化建议，尽量在应用程序中进行计算和转换。
+
+
+
+**4.1 隐式类型转换导致的索引失效**
+
+比如下面语句中索引列user_id为varchar类型，不会命中索引：
+
+```mysql
+select * from `user` where user_id = 12;
+```
+
+这是因为MySQL做了隐式类型转换，调用函数将user_id做了转换。
+
+```mysql
+select * from `user` where CAST(user_id AS signed int) = 12;
+```
+
+
+
+**4.2 隐式字符编码转换导致的索引失效**
+
+当两个表之间做关联查询时，如果两个表中关联的字段字符编码不一致的话，MySQL可能会调用CONVERT函数，将不同的字符编码进行隐式转换从而达到统一。作用到关联的字段时，就会导致索引失效。
+
+比如下面这个语句，其中d.tradeid字符编码为utf8，而l.tradeid的字符编码为utf8mb4。因为utf8mb4是utf8的超集，所以MySQL在做转换时会用CONVERT将utf8转为utf8mb4。简单来看就是CONVERT作用到了d.tradeid上，因此索引失效。
+
+```mysql
+select l.operator from tradelog l , trade_detail d where d.tradeid=l.tradeid and d.id=4;
+```
+
+这种情况一般有两种解决方案。
+
+方案1: 将关联字段的字符编码统一。
+
+方案2: 实在无法统一字符编码时，手动将CONVERT函数作用到关联时=的右侧，起到字符编码统一的目的，这里是强制将utf8mb4转为utf8，当然从超集向子集转换是有数据截断风险的。如下：
+
+```mysql
+select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2;
+```
+
+
+
+**5. 对索引列进行运算，一定会导致索引失效**
+
+运算如+，-，*，/等，如下：
+
+```mysql
+select * from `user` where age - 1 = 10;
+```
+
+
+
+**6. like通配符可能会导致索引失效**
+
+like查询以%开头时，会导致索引失效。解决办法有两种：
+
+将%移到后面，如：
+
+```mysql
+select * from `user` where `name` like '李%';
+```
+
+利用覆盖索引来命中索引。
+
+```mysql
+select name from `user` where `name` like '%李%';
+```
+
+
+
+**7. 联合索引中，where中索引列违背最左匹配原则，一定会导致索引失效**
+
+当创建一个联合索引的时候，如(k1,k2,k3)，相当于创建了(k1)、(k1,k2)和(k1,k2,k3)三个索引，这就是最左匹配原则。
+
+比如下面的语句就不会命中索引：
+
+```mysql
+select * from t where k2=2;
+select * from t where k3=3;
+select * from t where k2=2 and k3=3;
+```
+
+下面的语句只会命中索引(k1):
+
+```mysql
+slect * from t where k1=1 and k3=3;
+```
+
+
+
+**8. MySQL优化器的最终选择，不走索引**
+
+上面有提到，即使完全符合索引生效的场景，考虑到实际数据量等原因，最终是否使用索引还要看MySQL优化器的判断。当然你也可以在sql语句中写明强制走某个索引。	
+

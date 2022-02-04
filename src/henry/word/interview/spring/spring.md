@@ -68,21 +68,27 @@ aop框架具有的两个特征：
 如上图所示，Bean的生命周期还是比较复杂的，下面来对上图每一个步骤做文字描述:
 
 1. Spring启动，查找并加载需要被Spring管理的bean，进行Bean的实例化
-
 2. Bean实例化后对将Bean的引入和值注入到Bean的属性中
-
 3. 如果Bean实现了BeanNameAware接口的话，Spring将Bean的Id传递给setBeanName()方法
-
 4. 如果Bean实现了BeanFactoryAware接口的话，Spring将调用setBeanFactory()方法，将BeanFactory容器实例传入
-
 5. 如果Bean实现了ApplicationContextAware接口的话，Spring将调用Bean的setApplicationContext()方法，将bean所在应用上下文引用传入进来。
-
 6. 如果Bean实现了BeanPostProcessor接口，Spring就将调用他们的postProcessBeforeInitialization()方法。
-
 7. 如果Bean 实现了InitializingBean接口，Spring将调用他们的afterPropertiesSet()方法。类似的，如果bean使用init-method声明了初始化方法，该方法也会被调用
-
 8. 如果Bean 实现了BeanPostProcessor接口，Spring就将调用他们的postProcessAfterInitialization()方法。
-
 9. 此时，Bean已经准备就绪，可以被应用程序使用了。他们将一直驻留在应用上下文中，直到应用上下文被销毁。
-
 10. 如果bean实现了DisposableBean接口，Spring将调用它的destroy()接口方法，同样，如果bean使用了destroy-method 声明销毁方法，该方法也会被调用。
+
+
+
+### 三、spring事务传播特性
+
+| 传播行为                         | 意义                                                         |
+| :------------------------------- | :----------------------------------------------------------- |
+| PROPAGATION_REQUIRES（默认实现） | 表示当前方法必须在一个事务中运行。如果一个现有事务正在进行中，该方法将在那个事务中运行，否则就要开始一个新事务。 |
+| PROPAGATION_SUPPORTS             | 表示当前方法不需要事务性上下文，但是如果有一个事务已经在运行的话，它也可以在这个事务里运行。 |
+| PROPAGATION_MANDATORY            | 表示该方法必须运行在一个事务中。如果当前没有事务正在发生，将抛出一个异常。 |
+| PROPAGATION_REQUIRES_NEW         | 表示当前方法必须在它自己的事务里运行。一个新的事务将被启动，而且如果有一个现有事务在运行的话，则将在这个方法运行期间被挂起。 |
+| PROPAGATION_NOT_SUPPORTED        | 表示该方法不应该在一个事务中运行。如果一个现有事务正在进行中，它将在该方法的运行期间被挂起。 |
+| PROPAGATION_NEVER                | 表示当前的方法不应该在一个事务中运行。如果一个事务正在进行，则会抛出一个异常。 |
+| PROPAGATION_NESTED               | 表示如果当前正有一个事务在进行中，则该方法应当运行在一个嵌套式事务中。被嵌套的事务可以独立于封装事务进行提交或回滚。如果封装事务不存在，行为就像PROPAGATION_REQUIRES一样。 |
+
